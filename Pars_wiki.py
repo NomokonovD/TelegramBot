@@ -8,7 +8,12 @@ def pars_wiki(city, userid):
     data = f.read()
     f.close()
     CityWord = data.lower().find(word)
-    if CityWord == -1:
+    f = open('Attractions.txt', 'r', encoding='utf8')
+    data = f.read()
+    f.close()
+    DostWord = data.lower().find(word)
+    print(CityWord,DostWord)
+    if CityWord == -1 and DostWord == -1:
         return False
     else:
         wikipedia.set_lang('ru')
