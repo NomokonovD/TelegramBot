@@ -17,14 +17,14 @@ def pars_wiki(city, userid):
         return False
     else:
         wikipedia.set_lang('ru')
-        page = wikipedia.page(city)
+        page = wikipedia.page(f'город {city}')
         description = page.summary
 
         if not os.path.exists(f'./img/{userid}'):
             os.mkdir(f'./img/{userid}')
 
         google_crawler = GoogleImageCrawler(storage={'root_dir': f'./img/{userid}'})
-        google_crawler.crawl(keyword=f'Красивые фото {city} jpg', max_num=4)
+        google_crawler.crawl(keyword=f'Красивые фото и достопримечательности города {city} jpg', max_num=4)
         return description
 
 
