@@ -4,19 +4,22 @@ import telebot
 import requests
 from Pars_wiki import *
 from koordinati import *
-from marshrut import *
+from route import *
 
 bot = telebot.TeleBot('6106225915:AAHnu2uBWMHvmHFCRlB0vsGc8VSmlZoDO24')
 
+#При команде /start или /hello выводится приветственное сообщение , где кратко описан функционал
 @bot.message_handler(commands=['start', 'hello'])
 def start_bot(message):
     bot.send_message(message.chat.id, f'Привет, {message.from_user.first_name}!')
 
+#При команде /city
 @bot.message_handler(commands=['city'])
 def search_city(message):
     bot.send_message(message.chat.id, "Введите название города, о котором хотели бы найти информацию")
     bot.register_next_step_handler(message, city)
 
+#При команде /search
 @bot.message_handler(commands=['search'])
 def search_organizations(message):
     bot.send_message(message.chat.id, "Введите название магазина/организации, которую хотели бы найти поблизости")
@@ -24,62 +27,62 @@ def search_organizations(message):
 
 
 def city(message):
-    message_user = message.text
-    print(message_user)
+    message_user = message.text #ожидается ввод от пользователя после команды /city
     bot.send_message(message.chat.id, 'Ваш запрос обрабатывается...')
-    description = pars_wiki(message_user, message.from_user.id)
-    if description != False:
-        f = open(f"img/{message.chat.id}.txt", "w", encoding="utf8")
-        print(message.text, file=f)
-        f.close()
+    description = pars_wiki(message_user, message.from_user.id) #вызов функции, в которой происохдит парсинг с википедии по запросу пользователя
+    if description != False: #если информация по запросу найдена
+
+        #отправка фотографий и описания города , по запросу пользователя
         bot.send_media_group(message.chat.id,
                              [telebot.types.InputMediaPhoto(open(f'./img/{message.from_user.id}/000001.jpg', 'rb')),
                               telebot.types.InputMediaPhoto(open(f'./img/{message.from_user.id}/000002.jpg', 'rb')),
                               telebot.types.InputMediaPhoto(open(f'./img/{message.from_user.id}/000003.jpg', 'rb')),
                               telebot.types.InputMediaPhoto(open(f'./img/{message.from_user.id}/000004.jpg', 'rb'))])
+        #после отправки фотографий, которые хранились в папке с названием id пользователя, они удаляются
         for i in range(1, 5):
             os.remove(f'./img/{message.from_user.id}/00000{i}.jpg')
 
         bot.send_message(message.chat.id, description)
-        bot.delete_message(message.chat.id, message.message_id + 1)
+        bot.delete_message(message.chat.id, message.message_id + 1) #после отправки сообщений по запросу удаляется сообщение 'Ваш запрос обрабатывается...'
+        #Создание кнопок с предложением о выводе списка достопримечательностей
         markup = telebot.types.InlineKeyboardMarkup()
-        KY = telebot.types.InlineKeyboardButton(text="Да", callback_data="KYES")
-        KN = telebot.types.InlineKeyboardButton(text="Нет", callback_data="KNO")
+
+        KY = telebot.types.InlineKeyboardButton(text="Да", callback_data=f"KYES:{message_user}")
+        KN = telebot.types.InlineKeyboardButton(text="Нет", callback_data=f"KNO:{message_user}")
         markup.add(KY, KN)
         bot.send_message(message.chat.id, "Хотите увидеть достопримечательности этого города", reply_markup=markup)
-
+    #если пользователь ввел не город , а рандомное слово , то выводится соответсвующее сообщение
     else:
         bot.delete_message(message.chat.id, message.message_id + 1)
         bot.send_message(message.chat.id, 'Город по вашему запросу не найден. Попробуйте снова')
 
 
-@bot.callback_query_handler(func=lambda call: call.data in ["KYES","KNO"])
-def dostoprim(call):
-    if call.data=="KYES":
+@bot.callback_query_handler(func=lambda call: call.data.startswith(("KYES:", "KNO:")))
+def attractions(call):
+    city = call.data.split(":")[1] # получаем город , по которому пользователь хочет получить список достопримечательностей
+
+    if call.data ==f"KYES:{city}": #Если пользователь выбрал "Да"
         bot.send_message(call.message.chat.id, 'Ваш запрос обрабатывается...')
-        kor=[]
-        f=open("Attractions.txt","r",encoding="utf8")
+        koordinaten=[]
+        f=open("Attractions.txt","r",encoding="utf8")#######################################
         BD=f.readlines()
         f.close()
-        f=open(f"img/{call.message.chat.id}.txt","r",encoding="utf8")
-        city=f.readlines()
-        f.close()
-        city=city[0].rstrip()
 
         try:
             for i in BD:
                 if i.find(city)!=-1:
                     mas=i.split(":")
                     mas=mas[1].rstrip().split(",")
+
                     for q in mas:
                         e=q+" "+city
-                        kor.append(koordinati(e))
-                    print(kor)
-                    por=driver(kor)
-                    print(por)
+                        koordinaten.append(koordinatens(e))
+                    print(koordinaten)
+                    sorted_attractions=driver(koordinaten)
+                    print(sorted_attractions)
                     markup = telebot.types.InlineKeyboardMarkup()
                     gor=""
-                    for w in por:
+                    for w in sorted_attractions:
                         gor+=mas[w-1]+","
                         KN = telebot.types.InlineKeyboardButton(text=mas[w-1], callback_data=mas[w-1])
                         markup.add( KN)
@@ -106,8 +109,7 @@ def dostoprimichatelnosti(call):
         bot.delete_message(call.message.chat.id, call.message.message_id + 1)
 
 
-#ФУНКЦИИ , КОТОРЫЕ ОТВЕЧАЮТ ЗА ФУНКЦИОНАЛ ГЕОЛОКАЦИИ И ПОИСКА БЛИЖАЙШЕЙ ОРГАНИЗАЦИИ
-
+#ФУНКЦИИ , КОТОРЫЕ ОТВЕЧАЮТ ЗА ГЕОЛОКАЦИЮ И ПОИСК БЛИЖАЙШЕЙ ОРГАНИЗАЦИИ
 def geolocation(message):
     message_user = message.text
     print(message_user)
@@ -138,7 +140,7 @@ def find_shops(user_id, shop, lat, lon):
 
     req = str(lon) + ',' + str(lat)
     PARAMS = {
-        "apikey": "10a9f041-f0b0-4821-89a5-ab19250b8c72",
+        "apikey": "f60ca0c9-9813-4936-881f-e625597d9c7b",
         "text": shop,
         "lang": "ru_RU",
         "type": "biz",
@@ -165,7 +167,7 @@ def find_shops(user_id, shop, lat, lon):
         # Ничего не найдено
         bot.send_message(user_id, "😥 По вашему запросу вблизи ничего не найдено", reply_markup=markup)
 
-
+#приветсвенное сообщение , если пользователь не воспользовался командой /start
 @bot.message_handler(content_types=['text'])
 def hi(message):
     hello = ['привет', 'хай', 'hello', 'hi', 'здравствуй', 'здравствуйте']

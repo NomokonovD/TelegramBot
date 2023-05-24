@@ -1,17 +1,10 @@
 from collections import defaultdict
 from math import sqrt
 
-# Shortest path to all coordinates from any node
-# Coordinates must be provided as a list containing lists of
-# x/y pairs. ie [[23.2321, 58.3123], [x.xxx, y.yyy]]
-
-
 def distance_between_coords(x1, y1, x2, y2):
     distance = sqrt(((x2 - x1) ** 2) + ((y2 - y1) ** 2))
     return distance
 
-
-# Adds "names" to coordinates to use as keys for edge detection
 def name_coords(coords):
     coord_count = 0
     for coord in coords:
@@ -20,8 +13,6 @@ def name_coords(coords):
     return coords
 
 
-# Creates a weighted and undirected graph
-# Returns named coordinates and their connected edges as a dictonary
 def graph(coords):
     coords = name_coords(coords)
     graph = defaultdict(list)
@@ -38,8 +29,6 @@ def graph(coords):
     return coords, edges
 
 
-# Returns a path to all nodes with least weight as a list of names
-# from a specific node
 def shortest_path(node_list, edges, start):
     neighbor = 0
     unvisited = []
@@ -66,7 +55,6 @@ def shortest_path(node_list, edges, start):
 
 
 def driver(kor):
-    # kor=[[52.03349165 , 113.50090220122553], [113.5024704099655 , 52.0431939],[113.5068641189657 , 52.034169500000004],[113.5269832 , 52.0289395]]
     coords = kor
     coords, edges = graph(coords)
     shortest_path(coords, edges, 3)
@@ -75,18 +63,15 @@ def driver(kor):
 
     for index, node in enumerate(coords):
         path, weight = shortest_path(coords, edges, index + 1)
-        #print('--------------------------------------')
-        #print("Path", index + 1, "=", path)
-        #print("Weight =", weight)
+
         if index == 0:
             shortest_path_weight = weight
             shortest_path_taken = path
         elif weight < shortest_path_weight:
             shortest_path_weight = weight
             shortest_path_taken = path
-    #print('--------------------------------------')
-    #print("The shortest path to all nodes is:", shortest_path_taken)
+
     return shortest_path_taken
-    #print("The weight of the path is:", shortest_path_weight)
+
 if __name__=="__main__":
     driver()
