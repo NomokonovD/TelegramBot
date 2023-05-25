@@ -1,3 +1,62 @@
+import sqlite3
+
+# # Подключение к базе данных
+# conn = sqlite3.connect('cities.db')
+# cursor = conn.cursor()
+#
+# # # SELECT-запрос для получения списка достопримечательностей Москвы
+# # cursor.execute('''SELECT name_attraction FROM attraction
+# #                   WHERE name_city = 'Москва' ''')
+#
+# query = '''SELECT name_attraction FROM attraction
+#                WHERE name_city = ? '''
+#     cursor.execute(query, (city,))
+# # Извлечение результатов запроса
+# attractions = cursor.fetchall()
+# BD = [attraction[0] for attraction in attractions]
+# print(BD)
+#
+# # Вывод списка достопримечательностей Москвы
+# if attractions:
+#     print("Достопримечательности Москвы:")
+# else:
+#     print("Достопримечательности Москвы не найдены.")
+#
+# # Закрытие соединения с базой данных
+# conn.close()
+
+# import sqlite3
+#
+# # Устанавливаем соединение с базой данных
+# connection = sqlite3.connect("cities.db")
+# cursor = connection.cursor()
+#
+# # Создаем таблицу "attraction", если она не существует
+# cursor.execute('''CREATE TABLE IF NOT EXISTS attraction
+#                   (attraction_id INTEGER PRIMARY KEY AUTOINCREMENT,
+#                    name_attraction TEXT,
+#                    name_city TEXT,
+#                    FOREIGN KEY (name_city) REFERENCES city(name_city))''')
+#
+# # Список с достопримечательностями для города Москва
+# attractions = [
+#     ("Красная площадь", "Москва"),
+#     ("Кремль", "Москва"),
+#     ("Большой театр", "Москва"),
+#     ("Собор Василия Блаженного", "Москва")
+# ]
+#
+# # Вставляем достопримечательности в таблицу "attraction"
+# cursor.executemany("INSERT INTO attraction (name_attraction, name_city) VALUES (?, ?)", attractions)
+#
+# # Подтверждаем изменения и закрываем соединение с базой данных
+# connection.commit()
+# connection.close()
+
+
+
+##########################################################################
+##СОЗДАНИЕ ТАБЛИЦ И ЗАПОЛНЕНИЕ ГОРОДАМИ
 # import sqlite3
 #
 # # Создание базы данных и подключение к ней

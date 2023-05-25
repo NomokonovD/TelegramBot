@@ -3,26 +3,26 @@ from icrawler.builtin import GoogleImageCrawler
 import os
 import sqlite3
 
-def pars_wiki(city, userid):
-    word = city.lower() #получаем город из параметров , который хочет найти пользователь и делаем его в нижний регистр
+#Третий параметр в функции отвечает за то , что сейчас будет парситься
+#TRUE -  достопримечательность
+#FALSE - город
+def pars_wiki(city, userid, flagAttractions):
 
     #Проверяем ввел ли пользователь город , если нет , то вывводится сообщение что такого нет в базе
 
-    city_name = city.capitalize()  # Название города, которое  хотитим проверить
+    city_name = city.capitalize()  # Название города, которое  хотитим проверить (capitalize делает первую букву заглавной, остальные строчные)
+
     conn = sqlite3.connect('cities.db')
     cursor = conn.cursor()
 
-    query = "SELECT * FROM city WHERE LOWER(name_city) = LOWER(?)"
+    #Определяется SQL-запрос query, который выбирает все строки из таблицы "city", где значение столбца "name_city" равно заданному названию города.
+    #Знак вопроса (?) является параметром, который будет заменен на значение city_name при выполнении запроса.
+    query = "SELECT * FROM city WHERE name_city = ?"
     cursor.execute(query, (city_name,))
     resultCity = cursor.fetchone()
+    conn.close()
 
-
-    f = open('Attractions.txt', 'r', encoding='utf8')
-    data = f.read()
-    f.close()
-    AttractionsWord = data.lower().find(word)
-    print(resultCity,AttractionsWord)
-    if resultCity == None and AttractionsWord == -1:
+    if resultCity == None and flagAttractions == False:
         return False
     else:
         wikipedia.set_lang('ru')

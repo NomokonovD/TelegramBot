@@ -29,7 +29,7 @@ def search_organizations(message):
 def city(message):
     message_user = message.text #ожидается ввод от пользователя после команды /city
     bot.send_message(message.chat.id, 'Ваш запрос обрабатывается...')
-    description = pars_wiki(message_user, message.from_user.id) #вызов функции, в которой происохдит парсинг с википедии по запросу пользователя
+    description = pars_wiki(message_user, message.from_user.id, False) #вызов функции, в которой происохдит парсинг с википедии по запросу пользователя
     if description != False: #если информация по запросу найдена
 
         #отправка фотографий и описания города , по запросу пользователя
@@ -47,8 +47,8 @@ def city(message):
         #Создание кнопок с предложением о выводе списка достопримечательностей
         markup = telebot.types.InlineKeyboardMarkup()
 
-        KY = telebot.types.InlineKeyboardButton(text="Да", callback_data=f"KYES:{message_user}")
-        KN = telebot.types.InlineKeyboardButton(text="Нет", callback_data=f"KNO:{message_user}")
+        KY = telebot.types.InlineKeyboardButton(text="Да", callback_data=f"KYES:{message_user.capitalize()}")
+        KN = telebot.types.InlineKeyboardButton(text="Нет", callback_data=f"KNO:{message_user.capitalize()}")
         markup.add(KY, KN)
         bot.send_message(message.chat.id, "Хотите увидеть достопримечательности этого города", reply_markup=markup)
     #если пользователь ввел не город , а рандомное слово , то выводится соответсвующее сообщение
@@ -64,38 +64,46 @@ def attractions(call):
     if call.data ==f"KYES:{city}": #Если пользователь выбрал "Да"
         bot.send_message(call.message.chat.id, 'Ваш запрос обрабатывается...')
         koordinaten=[]
-        f=open("Attractions.txt","r",encoding="utf8")#######################################
-        BD=f.readlines()
-        f.close()
 
-        try:
-            for i in BD:
-                if i.find(city)!=-1:
-                    mas=i.split(":")
-                    mas=mas[1].rstrip().split(",")
+        # Подключение к базе данных
+        conn = sqlite3.connect('cities.db')
+        cursor = conn.cursor()
 
-                    for q in mas:
-                        e=q+" "+city
-                        koordinaten.append(koordinatens(e))
-                    print(koordinaten)
-                    sorted_attractions=driver(koordinaten)
-                    print(sorted_attractions)
-                    markup = telebot.types.InlineKeyboardMarkup()
-                    gor=""
-                    for w in sorted_attractions:
-                        gor+=mas[w-1]+","
-                        KN = telebot.types.InlineKeyboardButton(text=mas[w-1], callback_data=mas[w-1])
-                        markup.add( KN)
+        #Запрос для проверки о наличии достопримечательности в БД
+        query = '''SELECT name_attraction FROM attraction
+                       WHERE name_city = ? '''
+        cursor.execute(query, (city,))
 
-                    bot.send_message(call.message.chat.id, f"Достропримечательства города {city} лучше поситить в следующем порядке {gor} если хотите узнать о чёмнибудь по подробние нажмите на кнопки ниже", reply_markup=markup)
-                    raise StopIteration
-        except StopIteration:
-            pass
+        # Извлечение результатов запроса
+        attractions = cursor.fetchall()
+        BD = [attraction[0] for attraction in attractions]
+        print(BD)
+        # Закрытие соединения с базой данных
+        conn.close()
+
+        for q in BD:
+            e = q + " " + city
+            koordinaten.append(koordinatens(e))
+
+        sorted_attractions = driver(koordinaten)
+
+        markup = telebot.types.InlineKeyboardMarkup()
+        gor = ""
+        for w in sorted_attractions:
+            gor += BD[w - 1] + ","
+            KN = telebot.types.InlineKeyboardButton(text=BD[w - 1], callback_data=BD[w - 1])
+            markup.add(KN)
+
+        bot.send_message(call.message.chat.id,
+                         f"Достропримечательства города {city} лучше поситить в следующем порядке {gor} если хотите узнать о чёмнибудь по подробние нажмите на кнопки ниже",
+                         reply_markup=markup)
+
 
 @bot.callback_query_handler(func=lambda call: True)
 def dostoprimichatelnosti(call):
     bot.send_message(call.message.chat.id, 'Ваш запрос обрабатывается...')
-    description = pars_wiki(call.data, call.message.from_user.id)
+    print(call.data)
+    description = pars_wiki(call.data, call.message.from_user.id, True)
     if description != False:
         bot.send_media_group(call.message.chat.id,
                              [telebot.types.InputMediaPhoto(open(f'./img/{call.message.from_user.id}/000001.jpg', 'rb')),
