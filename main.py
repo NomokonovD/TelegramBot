@@ -59,27 +59,39 @@ def city(message):
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith(("KYES:", "KNO:")))
 def attractions(call):
-    city = call.data.split(":")[1] # получаем город , по которому пользователь хочет получить список достопримечательностей
+    city = call.data.split(":")[1] # получаем город, по которому пользователь хочет получить список достопримечательностей
 
     if call.data ==f"KYES:{city}": #Если пользователь выбрал "Да"
         bot.send_message(call.message.chat.id, 'Ваш запрос обрабатывается...')
         koordinaten=[]
 
-        # Подключение к базе данных
-        conn = sqlite3.connect('cities.db')
-        cursor = conn.cursor()
+        #Получаем ID города из БД, о котором делал запрос пользователь
+        connection = sqlite3.connect("cities.db")
+        cursor = connection.cursor()
+        query_cityID = '''SELECT city_id
+                       FROM city
+                       WHERE name_city = ?'''
 
-        #Запрос для проверки о наличии достопримечательности в БД
-        query = '''SELECT name_attraction FROM attraction
-                       WHERE name_city = ? '''
-        cursor.execute(query, (city,))
+        cursor.execute(query_cityID, (city,))
 
-        # Извлечение результатов запроса
+        city_id = cursor.fetchall()[0][0]  #ID города из DATABASE
+        connection.close()
+
+        #Получаем все достопримечательности из БД по ID города
+        connection = sqlite3.connect("cities.db")
+        cursor = connection.cursor()
+        query = '''SELECT name_attraction
+                       FROM attraction
+                       WHERE city_id = ?'''
+        # Выполнение запроса с использованием ID города
+        cursor.execute(query, (city_id,))
         attractions = cursor.fetchall()
+
+        # Преобразование результатов в массив названий достопримечательностей
         BD = [attraction[0] for attraction in attractions]
+        connection.close()
         print(BD)
         # Закрытие соединения с базой данных
-        conn.close()
 
         for q in BD:
             e = q + " " + city

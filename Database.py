@@ -1,4 +1,63 @@
-import sqlite3
+##############################################################################################
+#СОЗДАЕМ ТАБЛИЦУ ДЛЯ ДОСТОПРИМЕЧ И ЗАПОЛНЕНИЕ ДЛЯ ГОРОДА МОСКВА
+#МОСКВА
+# import sqlite3
+#
+# # Создаем подключение к базе данных
+# connection = sqlite3.connect("cities.db")
+# cursor = connection.cursor()
+#
+# # Создаем таблицу "attraction", если она не существует
+# cursor.execute('''CREATE TABLE IF NOT EXISTS attraction
+#                   (attraction_id INTEGER PRIMARY KEY AUTOINCREMENT,
+#                    name_attraction TEXT,
+#                    city_id INTEGER,
+#                    FOREIGN KEY (city_id) REFERENCES city(city_id))''')
+#
+# # ID города Москвы
+# moscow_city_id = 606
+#
+# # Список с достопримечательностями для города Москва
+# attractions = [
+#     ("Красная площадь", moscow_city_id),
+#     ("Московский Кремль", moscow_city_id),
+#     ("Собор Василия Блаженного", moscow_city_id),
+#     ("Большой театр", moscow_city_id),
+#     ("Храм Христа Спасителя", moscow_city_id),
+#     ("ВДНХ (Выставка достижений народного хозяйства)", moscow_city_id),
+#     ("Парк Горького", moscow_city_id),
+#     ("Московский зоопарк", moscow_city_id),
+#     ("Третьяковская галерея", moscow_city_id),
+#     ("Московский метрополитен", moscow_city_id),
+#     ("Новодевичий монастырь", moscow_city_id),
+#     ("Пушкинская площадь", moscow_city_id),
+#     ("Музей космонавтики", moscow_city_id),
+#     ("Останкинская телебашня", moscow_city_id),
+#     ("Музей изобразительных искусств имени А.С. Пушкина", moscow_city_id),
+#     ("Музей истории Москвы", moscow_city_id),
+#     ("Никольская улица", moscow_city_id),
+#     ("Зоологический музей Московского государственного университета", moscow_city_id),
+#     ("Коломенское", moscow_city_id),
+#     ("Музей Москвы", moscow_city_id),
+#     ("Новая Третьяковка", moscow_city_id),
+#     ("Государственный исторический музей", moscow_city_id),
+#     ("Арбатская площадь", moscow_city_id),
+#     ("Музей современного искусства «Гараж»", moscow_city_id),
+#     ("Остров Лужники", moscow_city_id),
+#     ("Парк Зарядье", moscow_city_id),
+#     ("Музей архитектуры имени А.В. Щусева", moscow_city_id),
+#     ("Колокольня Ивана Великого", moscow_city_id),
+#     ("Патриаршие пруды", moscow_city_id),
+#     ("Музей Московского метрополитена", moscow_city_id)
+# ]
+#
+# # Вставляем достопримечательности в таблицу "attraction"
+# cursor.executemany("INSERT INTO attraction (name_attraction, city_id) VALUES (?, ?)", attractions)
+#
+# # Сохраняем изменения и закрываем соединение
+# connection.commit()
+# connection.close()
+#############################################################################################33
 
 # # Подключение к базе данных
 # conn = sqlite3.connect('cities.db')
@@ -48,7 +107,7 @@ import sqlite3
 #
 # # Вставляем достопримечательности в таблицу "attraction"
 # cursor.executemany("INSERT INTO attraction (name_attraction, name_city) VALUES (?, ?)", attractions)
-#
+
 # # Подтверждаем изменения и закрываем соединение с базой данных
 # connection.commit()
 # connection.close()
