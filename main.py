@@ -5,162 +5,284 @@ import requests
 from Pars_wiki import *
 from koordinati import *
 from route import *
+from Weather import *
+import config
 
-bot = telebot.TeleBot('6106225915:AAHnu2uBWMHvmHFCRlB0vsGc8VSmlZoDO24')
+bot = telebot.TeleBot(config.bot_token) #Все ключи и токены лежат в файле config
 
-#При команде /start или /hello выводится приветственное сообщение , где кратко описан функционал
+#При команде /start или /hello выводится приветственное сообщение , где описан функционал
 @bot.message_handler(commands=['start', 'hello'])
 def start_bot(message):
-    bot.send_message(message.chat.id, f'Привет, {message.from_user.first_name}!')
+    keyboard = telebot.types.InlineKeyboardMarkup()
+    button=telebot.types.InlineKeyboardButton(text="✅ Главное меню", callback_data="menu")
+    keyboard.add(button)
+    bot.send_message(message.chat.id, f'Привет, {message.from_user.first_name}!\n{config.welcome_message}',reply_markup=keyboard)
 
-#При команде /city
-@bot.message_handler(commands=['city'])
-def search_city(message):
-    bot.send_message(message.chat.id, "Введите название города, о котором хотели бы найти информацию")
-    bot.register_next_step_handler(message, city)
+#Функция, которая запускает menu() после нажатия на кнопку [Главное меню]
+@bot.callback_query_handler(func=lambda call: True)
+def callback_inline(call):
+    if call.data=='menu':
+        menu(call.message)
 
-#При команде /search
-@bot.message_handler(commands=['search'])
-def search_organizations(message):
-    bot.send_message(message.chat.id, "Введите название магазина/организации, которую хотели бы найти поблизости")
-    bot.register_next_step_handler(message, geolocation)
+#В функции создаются кнопки главного меню
+def menu(message):
+    keyboard = telebot.types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
+    button = telebot.types.KeyboardButton(text="🏰 Найти информацию о городе")
+    keyboard.add(button)
+    button = telebot.types.KeyboardButton(text="🍎 Поиск магазина/организации")
+    keyboard.add(button)
+    bot.send_message(message.chat.id, config.menu_message, reply_markup=keyboard)
 
+#Функция срабатывает на любые сообщения, которые отправляет пользователь (Идет проверка на ввод какой-либо команды)
+@bot.message_handler(content_types=['text'])
+def menu_flag(message):
+    hello = ['привет', 'хай', 'hello', 'hi', 'здравствуй', 'здравствуйте','ку']
+
+    keyboard = telebot.types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
+    button = telebot.types.KeyboardButton(text="✅ Главное меню")
+    keyboard.add(button)
+    conn = sqlite3.connect('cities.db')
+    cursor = conn.cursor()
+    query = """SELECT attraction.name_attraction ||' '|| city.name_city
+                FROM attraction
+                INNER JOIN city
+                ON attraction.city_id=city.city_id
+                WHERE attraction.name_attraction=?"""
+    cursor.execute(query, (message.text,))
+    resultAttaraction = cursor.fetchone()
+    conn.close()
+    if message.text=='🏰 Найти информацию о городе':
+        bot.send_message(message.chat.id, "Введите название города, о котором хотели бы найти информацию.\n\nЕсли хотите вернуться в меню, то нажмите на кнопку [✅ Главное меню]", reply_markup=keyboard)
+        bot.register_next_step_handler(message, city)
+
+    elif message.text=='🍎 Поиск магазина/организации':
+        bot.send_message(message.chat.id, "Введите название магазина/организации, которую хотели бы найти поблизости.\n\nЕсли хотите вернуться в меню, то нажмите на кнопку [✅ Главное меню]",reply_markup=keyboard)
+        bot.register_next_step_handler(message, geolocation)
+
+    elif "🇷🇺 Да, хочу увидеть достопримечательности города" in message.text:
+        citys=message.text.removeprefix('🇷🇺 Да, хочу увидеть достопримечательности города ')
+        attractions(message,citys)
+
+    elif "🔙 Нет, выйти в главное менню ⬅️" in message.text:
+        menu(message)
+
+    elif "⛅️ Хочу узнать погоду в городе " in message.text:
+        citys = message.text.removeprefix('⛅️ Хочу узнать погоду в городе ')
+        weather_bot(message, citys)
+
+    elif resultAttaraction!=None:
+        resultAttaraction=resultAttaraction[0]
+        dostoprimichatelnosti(message,resultAttaraction)
+    elif message.text=="✅ Главное меню":
+        menu(message)
+    elif message.text.lower() in hello:
+        bot.send_message(message.chat.id, f'Привет, {message.from_user.first_name}!')
+    else:
+        bot.send_message(message.chat.id,"❌ Такой команды нет ❌\n Произошел 🔙 переход в главное меню")
+        menu(message)
 
 def city(message):
-    message_user = message.text #ожидается ввод от пользователя после команды /city
-    bot.send_message(message.chat.id, 'Ваш запрос обрабатывается...')
-    description = pars_wiki(message_user, message.from_user.id, False) #вызов функции, в которой происохдит парсинг с википедии по запросу пользователя
-    if description != False: #если информация по запросу найдена
+    try:
+        if message.text =="✅ Главное меню":
+            menu(message)
+        else:
+            message_user = message.text #ожидается ввод от пользователя после команды /city
+            bot.send_message(message.chat.id, 'Ваш запрос обрабатывается...')
+            description = pars_wiki(message_user, message.from_user.id, False) #вызов функции, в которой происохдит парсинг с википедии по запросу пользователя
+            if description != False: #если информация по запросу найдена
 
-        #отправка фотографий и описания города , по запросу пользователя
-        bot.send_media_group(message.chat.id,
-                             [telebot.types.InputMediaPhoto(open(f'./img/{message.from_user.id}/000001.jpg', 'rb')),
-                              telebot.types.InputMediaPhoto(open(f'./img/{message.from_user.id}/000002.jpg', 'rb')),
-                              telebot.types.InputMediaPhoto(open(f'./img/{message.from_user.id}/000003.jpg', 'rb')),
-                              telebot.types.InputMediaPhoto(open(f'./img/{message.from_user.id}/000004.jpg', 'rb'))])
-        #после отправки фотографий, которые хранились в папке с названием id пользователя, они удаляются
-        for i in range(1, 5):
-            os.remove(f'./img/{message.from_user.id}/00000{i}.jpg')
+                #отправка фотографий и описания города , по запросу пользователя
+                bot.send_media_group(message.chat.id,
+                                     [telebot.types.InputMediaPhoto(open(f'./img/{message.from_user.id}/000001.jpg', 'rb')),
+                                      telebot.types.InputMediaPhoto(open(f'./img/{message.from_user.id}/000002.jpg', 'rb')),
+                                      telebot.types.InputMediaPhoto(open(f'./img/{message.from_user.id}/000003.jpg', 'rb')),
+                                      telebot.types.InputMediaPhoto(open(f'./img/{message.from_user.id}/000004.jpg', 'rb'))])
+                #после отправки фотографий, которые хранились в папке с названием id пользователя, они удаляются
+                for i in range(1, 5):
+                    os.remove(f'./img/{message.from_user.id}/00000{i}.jpg')
 
-        bot.send_message(message.chat.id, description)
-        bot.delete_message(message.chat.id, message.message_id + 1) #после отправки сообщений по запросу удаляется сообщение 'Ваш запрос обрабатывается...'
-        #Создание кнопок с предложением о выводе списка достопримечательностей
-        markup = telebot.types.InlineKeyboardMarkup()
+                bot.send_message(message.chat.id, description)
+                bot.delete_message(message.chat.id, message.message_id + 1) #после отправки сообщений по запросу удаляется сообщение 'Ваш запрос обрабатывается...'
+                #Создание кнопок с предложением о выводе списка достопримечательностей
 
-        KY = telebot.types.InlineKeyboardButton(text="Да", callback_data=f"KYES:{message_user.capitalize()}")
-        KN = telebot.types.InlineKeyboardButton(text="Нет", callback_data=f"KNO:{message_user.capitalize()}")
-        markup.add(KY, KN)
-        bot.send_message(message.chat.id, "Хотите увидеть достопримечательности этого города", reply_markup=markup)
-    #если пользователь ввел не город , а рандомное слово , то выводится соответсвующее сообщение
-    else:
-        bot.delete_message(message.chat.id, message.message_id + 1)
-        bot.send_message(message.chat.id, 'Город по вашему запросу не найден. Попробуйте снова')
+                markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True,  row_width=1)
 
+                conn = sqlite3.connect('cities.db')
+                cursor = conn.cursor()
+                query = "SELECT name_city FROM city WHERE name_city = ? or alter_name_city=?"
+                cursor.execute(query, (message_user.title(), message_user.title(),))
+                resultCity = cursor.fetchone()
+                conn.close()
+                citys = resultCity[0]
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith(("KYES:", "KNO:")))
-def attractions(call):
-    city = call.data.split(":")[1] # получаем город, по которому пользователь хочет получить список достопримечательностей
+                KY = telebot.types.KeyboardButton(
+                    text=f"🇷🇺 Да, хочу увидеть достопримечательности города {citys}", )
+                KN = telebot.types.KeyboardButton(
+                    text="🔙 Нет, выйти в главное менню ⬅️")
+                KP=telebot.types.KeyboardButton(text=f"⛅️ Хочу узнать погоду в городе {citys}")
+                markup.add(KY, KN,KP)
+                conn = sqlite3.connect('cities.db')
+                cursor = conn.cursor()
+                # Запрос для проверки о наличии достопримечательности в БД
+                query = '''SELECT attraction.name_attraction
+                                    FROM attraction
+                                    INNER JOIN city
+                                    ON attraction.city_id=city.city_id
+                                    WHERE city.name_city = ? or city.alter_name_city=?'''
+                cursor.execute(query, (message_user.title(),message_user.title(),))
+                # Извлечение результатов запроса
+                attractions = cursor.fetchall()
+                BD = [attraction[0] for attraction in attractions]
 
-    if call.data ==f"KYES:{city}": #Если пользователь выбрал "Да"
-        bot.send_message(call.message.chat.id, 'Ваш запрос обрабатывается...')
+                if len(BD)>=3:
+                    bot.send_message(message.chat.id, "Хотите увидеть достопримечательности этого города или узнать погоду? 🔮", reply_markup=markup)
+                else:
+                    markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
+                    KN = telebot.types.KeyboardButton(text="✅ Главное меню")
+                    markup.add(KN,KP)
+                    bot.send_message(message.chat.id, "Хотите узнать погоду в этом городе?\n\nЕсли хотите вернуться в меню, то нажмите на кнопку [✅ Главное меню",reply_markup=markup)
+            #если пользователь ввел не город , а рандомное слово , то выводится соответсвующее сообщение
+            else:
+                markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
+                KN = telebot.types.KeyboardButton(text="✅ Главное меню")
+                markup.add(KN)
+                bot.delete_message(message.chat.id, message.message_id + 1)
+                bot.send_message(message.chat.id, 'Город по вашему запросу не найден. Вернитесь в главное меню и попробуйте еще! ',reply_markup=markup)
+                bot.register_next_step_handler(message, city)
+    except Exception as i:
+        bot.send_message(message.chat.id,"📢 Непредвиденная ошибка 📢")
+        print(i,1)
+        menu(message)
+
+# @bot.callback_query_handler(func=lambda call: call.data.startswith(("KYES:", "KNO:")))
+def attractions(message,city):
+    try:
+        city = city
+        bot.send_message(message.chat.id, 'Ваш запрос обрабатывается...')
         koordinaten=[]
+        koordinaten_city= {}
 
-        #Получаем ID города из БД, о котором делал запрос пользователь
-        connection = sqlite3.connect("cities.db")
-        cursor = connection.cursor()
-        query_cityID = '''SELECT city_id
-                       FROM city
-                       WHERE name_city = ?'''
+        # Подключение к базе данных
+        conn = sqlite3.connect('cities.db')
+        cursor = conn.cursor()
 
-        cursor.execute(query_cityID, (city,))
+        #Запрос для проверки о наличии достопримечательности в БД
+        query = '''SELECT attraction.name_attraction
+                    FROM attraction
+                    INNER JOIN city
+                    ON attraction.city_id=city.city_id
+                    WHERE city.name_city=? '''
+        cursor.execute(query, (city,))
 
-        city_id = cursor.fetchall()[0][0]  #ID города из DATABASE
-        connection.close()
-
-        #Получаем все достопримечательности из БД по ID города
-        connection = sqlite3.connect("cities.db")
-        cursor = connection.cursor()
-        query = '''SELECT name_attraction
-                       FROM attraction
-                       WHERE city_id = ?'''
-        # Выполнение запроса с использованием ID города
-        cursor.execute(query, (city_id,))
+        # Извлечение результатов запроса
         attractions = cursor.fetchall()
-
-        # Преобразование результатов в массив названий достопримечательностей
         BD = [attraction[0] for attraction in attractions]
-        connection.close()
         print(BD)
         # Закрытие соединения с базой данных
-
+        conn.close()
         for q in BD:
-            e = q + " " + city
-            koordinaten.append(koordinatens(e))
+            try:
+                e = q + " " + city
+                k=koordinatens(e)
+                koordinaten.append(k)
+                koordinaten_city[q]=k
+            except:
+                pass
 
-        sorted_attractions = driver(koordinaten)
-
-        markup = telebot.types.InlineKeyboardMarkup()
+        if len(koordinaten)>2:
+            sorted_attractions = driver(koordinaten)
+        elif len(koordinaten)==2:
+            sorted_attractions = [1,2]
+        markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
         gor = ""
+        koordinaten_keys = list(koordinaten_city.keys())
+
+        KN = telebot.types.KeyboardButton(text="✅ Главное меню")
+        markup.add(KN)
         for w in sorted_attractions:
-            gor += BD[w - 1] + ","
-            KN = telebot.types.InlineKeyboardButton(text=BD[w - 1], callback_data=BD[w - 1])
+            gor += koordinaten_keys[w-1] + " ➡️ "
+            KN = telebot.types.KeyboardButton(text=koordinaten_keys[w-1])
             markup.add(KN)
 
-        bot.send_message(call.message.chat.id,
-                         f"Достропримечательства города {city} лучше поситить в следующем порядке {gor} если хотите узнать о чёмнибудь по подробние нажмите на кнопки ниже",
+        gor = gor[:-3]
+        bot.send_message(message.chat.id,
+                         f"Достопримечательности города {city} лучше поситить в следующем порядке:\n{gor}\n\nЕсли хотите узнать о чём-нибудь подробней, нажмите на кнопки ниже",
                          reply_markup=markup)
+        bot.delete_message(message.chat.id, message.message_id + 1)
+    except Exception as i:
+        print(i,2)
+        bot.send_message(message.chat.id,"📢 Непредвиденная ошибка 📢")
+        menu(message)
 
+# @bot.callback_query_handler(func=lambda call: True)
+def dostoprimichatelnosti(message,attar):
+    try:
 
-@bot.callback_query_handler(func=lambda call: True)
-def dostoprimichatelnosti(call):
-    bot.send_message(call.message.chat.id, 'Ваш запрос обрабатывается...')
-    print(call.data)
-    description = pars_wiki(call.data, call.message.from_user.id, True)
-    if description != False:
-        bot.send_media_group(call.message.chat.id,
-                             [telebot.types.InputMediaPhoto(open(f'./img/{call.message.from_user.id}/000001.jpg', 'rb')),
-                              telebot.types.InputMediaPhoto(open(f'./img/{call.message.from_user.id}/000002.jpg', 'rb')),
-                              telebot.types.InputMediaPhoto(open(f'./img/{call.message.from_user.id}/000003.jpg', 'rb')),
-                              telebot.types.InputMediaPhoto(open(f'./img/{call.message.from_user.id}/000004.jpg', 'rb'))])
-        for i in range(1, 5):
-            os.remove(f'./img/{call.message.from_user.id}/00000{i}.jpg')
+        keyboard = telebot.types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
+        button = telebot.types.KeyboardButton(text="✅ Главное меню")
+        keyboard.add(button)
+        bot.send_message(message.chat.id, 'Ваш запрос обрабатывается...',reply_markup=telebot.types.ReplyKeyboardRemove())
+        description = pars_wiki(attar, message.from_user.id, True)
 
-        bot.send_message(call.message.chat.id, description)
-        bot.delete_message(call.message.chat.id, call.message.message_id + 1)
+        if description != False:
+            bot.send_media_group(message.chat.id,
+                                 [telebot.types.InputMediaPhoto(open(f'./img/{message.from_user.id}/000001.jpg', 'rb')),
+                                  telebot.types.InputMediaPhoto(open(f'./img/{message.from_user.id}/000002.jpg', 'rb')),
+                                  telebot.types.InputMediaPhoto(open(f'./img/{message.from_user.id}/000003.jpg', 'rb')),
+                                  telebot.types.InputMediaPhoto(open(f'./img/{message.from_user.id}/000004.jpg', 'rb'))])
+            for i in range(1, 5):
+                os.remove(f'./img/{message.from_user.id}/00000{i}.jpg')
 
+            bot.send_message(message.chat.id, description,reply_markup=keyboard)
+            bot.delete_message(message.chat.id, message.message_id + 1)
+    except Exception as i:
+        print(i,3)
+        bot.send_message(message.chat.id,"📢 Непредвиденная ошибка 📢")
+        menu(message)
 
 #ФУНКЦИИ , КОТОРЫЕ ОТВЕЧАЮТ ЗА ГЕОЛОКАЦИЮ И ПОИСК БЛИЖАЙШЕЙ ОРГАНИЗАЦИИ
 def geolocation(message):
-    message_user = message.text
-    print(message_user)
-    # Создаем кнопку с запросом геолокации
-    keyboard = telebot.types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
-    button = telebot.types.KeyboardButton(text="🌐 Отправить геолокацию", request_location=True)
-    keyboard.add(button)
-    # Отправляем пользователю сообщение с кнопкой
-    bot.send_message(message.chat.id, "👽 Нажмите кнопку для отправки геолокации", reply_markup=keyboard)
-    bot.register_next_step_handler(message, process_shop, message_user)
+    if message.text=="✅ Главное меню":
+        menu(message)
+    else:
+        message_user = message.text
+        # print(message_user)
+        # Создаем кнопку с запросом геолокации
+        keyboard = telebot.types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
+        button = telebot.types.KeyboardButton(text="🌐 Отправить геолокацию", request_location=True)
+        keyboard.add(button)
+        button = telebot.types.KeyboardButton(text="✅ Главное меню")
+        keyboard.add(button)
+        # Отправляем пользователю сообщение с кнопкой
+        bot.send_message(message.chat.id, "👽 Нажмите кнопку для отправки геолокации \n\nЕсли хотите вернуться в меню, то нажмите на кнопку [✅ Главное меню", reply_markup=keyboard)
+        bot.register_next_step_handler(message, process_shop, message_user)
 
 # Обработчик ввода магазина/организации geolocation
 def process_shop(message, mes_user):
-    # Получаем координаты геолокации
-    latitude = message.location.latitude
-    longitude = message.location.longitude
+    try:
+        if mes_user=="✅ Главное меню":
+            menu(message)
+        else:
+            # Получаем координаты геолокации
+            latitude = message.location.latitude
+            longitude = message.location.longitude
 
-    # Вызываем функцию для поиска магазинов и передаем идентификатор пользователя
-    find_shops(message.chat.id, mes_user, latitude, longitude)
-
+            # Вызываем функцию для поиска магазинов и передаем идентификатор пользователя
+            find_shops(message.chat.id, mes_user, latitude, longitude)
+    except Exception as i:
+        print(i,4)
+        bot.send_message(message.chat.id,"📢 Непредвиденная ошибка 📢")
+        menu(message)
 
 # Функция для поиска магазинов
 def find_shops(user_id, shop, lat, lon):
     markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
     item1 = telebot.types.KeyboardButton("✅ Главное меню")
-    item2 = telebot.types.KeyboardButton("📢 Информация")
-    markup.add(item1,item2)
+    markup.add(item1)
 
     req = str(lon) + ',' + str(lat)
     PARAMS = {
-        "apikey": "f60ca0c9-9813-4936-881f-e625597d9c7b",
+        "apikey": config.yandex_API,
         "text": shop,
         "lang": "ru_RU",
         "type": "biz",
@@ -187,12 +309,17 @@ def find_shops(user_id, shop, lat, lon):
         # Ничего не найдено
         bot.send_message(user_id, "😥 По вашему запросу вблизи ничего не найдено", reply_markup=markup)
 
-#приветсвенное сообщение , если пользователь не воспользовался командой /start
-@bot.message_handler(content_types=['text'])
-def hi(message):
-    hello = ['привет', 'хай', 'hello', 'hi', 'здравствуй', 'здравствуйте']
-    if message.text.lower() in hello:
-        bot.send_message(message.chat.id, f'Привет, {message.from_user.first_name}!')
+
+def weather_bot(message,citys):
+    markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
+    item1 = telebot.types.KeyboardButton("✅ Главное меню")
+    markup.add(item1)
+    inp=''
+    data=weather(citys)
+    for i in data:
+        inp=inp+i+" "+data[i]+"\n"
+    bot.send_message(message.chat.id,inp,reply_markup=markup)
+
 
 bot.infinity_polling()
 

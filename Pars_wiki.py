@@ -9,19 +9,20 @@ import sqlite3
 def pars_wiki(city, userid, flagAttractions):
 
     #Проверяем ввел ли пользователь город , если нет , то вывводится сообщение что такого нет в базе
-
-    city_name = city.capitalize()  # Название города, которое  хотитим проверить (capitalize делает первую букву заглавной, остальные строчные)
+    city_name = city.title()
+    # Название города, которое  хотитим проверить (capitalize делает первую букву заглавной, остальные строчные)
 
     conn = sqlite3.connect('cities.db')
     cursor = conn.cursor()
 
-    #Определяется SQL-запрос query, который выбирает все строки из таблицы "city", где значение столбца "name_city" равно заданному названию города.
-    #Знак вопроса (?) является параметром, который будет заменен на значение city_name при выполнении запроса.
-    query = "SELECT * FROM city WHERE name_city = ?"
-    cursor.execute(query, (city_name,))
+    # Определяется SQL-запрос query, который выбирает все строки из таблицы "city", где значение столбца "name_city" равно заданному названию города.
+    # Знак вопроса (?) является параметром, который будет заменен на значение city_name при выполнении запроса.
+    query = "SELECT name_city FROM city WHERE name_city = ? or alter_name_city=?"
+    cursor.execute(query, (city_name, city_name,))
     resultCity = cursor.fetchone()
     conn.close()
-
+    if flagAttractions==False:
+        city=resultCity[0]
     if resultCity == None and flagAttractions == False:
         return False
     else:

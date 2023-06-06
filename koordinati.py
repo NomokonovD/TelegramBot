@@ -9,4 +9,4 @@ def koordinatens(city):
 
 
 if __name__ == "__main__":
-    print(koordinatens("Памятник Пржевальскому Санкт-Петербург"))
+    print(koordinatens("Останкинская башня Москва"))
